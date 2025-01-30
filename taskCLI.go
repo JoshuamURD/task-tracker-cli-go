@@ -60,7 +60,7 @@ func (t *Tasks) LoadTasks(path string) error {
 }
 
 // AddTask adds a task
-func (t *Tasks) AddTask(task string) error {
+func (t *Tasks) AddTask(task, path string) error {
 	now := NowFunc()
 	*t = append(*t, Task{
 		ID:          len(*t) + 1,
@@ -69,6 +69,14 @@ func (t *Tasks) AddTask(task string) error {
 		Createdate:  now,
 		Updatedate:  now,
 	})
+
+	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal("An error occurred opening the json file: %v", err)
+	}
+	defer file.Close()
+
+	json.NewEncoder(file).Encode(*t[len(*t)])
 
 	fmt.Printf("Task added successfully (ID: %v)", len(*t))
 	return nil

@@ -43,7 +43,7 @@ func TestTasks(t *testing.T) {
 	})
 
 	t.Run("Adding a task", func(t *testing.T) {
-		tasks.AddTask("Test task")
+		tasks.AddTask("Test task", tempFile)
 
 		if len(tasks) != 1 {
 			t.Errorf("Expected 1 task, got %d", len(tasks))
