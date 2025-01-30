@@ -1,0 +1,17 @@
+mode: set
+joshuamURD/go-tasks-cli/taskCLI.go:22.23,24.2 1 1
+joshuamURD/go-tasks-cli/taskCLI.go:27.46,30.16 2 1
+joshuamURD/go-tasks-cli/taskCLI.go:30.16,32.3 1 0
+joshuamURD/go-tasks-cli/taskCLI.go:34.2,37.16 3 1
+joshuamURD/go-tasks-cli/taskCLI.go:37.16,39.3 1 0
+joshuamURD/go-tasks-cli/taskCLI.go:41.2,41.22 1 1
+joshuamURD/go-tasks-cli/taskCLI.go:41.22,43.3 1 1
+joshuamURD/go-tasks-cli/taskCLI.go:45.2,47.16 3 0
+joshuamURD/go-tasks-cli/taskCLI.go:47.16,49.3 1 0
+joshuamURD/go-tasks-cli/taskCLI.go:51.2,51.12 1 0
+joshuamURD/go-tasks-cli/taskCLI.go:55.44,64.2 2 1
+joshuamURD/go-tasks-cli/taskCLI.go:66.58,67.25 1 1
+joshuamURD/go-tasks-cli/taskCLI.go:67.25,70.17 2 1
+joshuamURD/go-tasks-cli/taskCLI.go:70.17,72.4 1 0
+joshuamURD/go-tasks-cli/taskCLI.go:74.2,74.12 1 1
+joshuamURD/go-tasks-cli/taskCLI.go:77.14,79.2 0 0
