@@ -17,8 +17,8 @@ type Task struct {
 	ID          int       `json:"name"`
 	Description string    `json:"description"`
 	Status      string    `json:"status"`
-	Createdate  time.time `json:"createdat"`
-	Updatedate  time.time `json:"updatedat"`
+	Createdate  time.Time `json:"createdat"`
+	Updatedate  time.Time `json:"updatedat"`
 }
 
 // Tasks stores a slice of the in memory tasks
@@ -70,6 +70,7 @@ func (t *Tasks) AddTask(task string) error {
 		Updatedate:  now,
 	})
 
+	fmt.Printf("Task added successfully (ID: %v)", len(*t))
 	return nil
 }
 
