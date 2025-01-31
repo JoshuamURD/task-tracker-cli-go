@@ -6,7 +6,7 @@ import (
 )
 
 // VerbHandler is a function that handles a command verb
-type VerbHandler func(verb string, args []string) error
+type VerbHandler func(args []string) error
 
 // HandlerMap is a type alias for a map of command handlers
 type HandlerMap map[string]VerbHandler
@@ -31,7 +31,7 @@ func HandleVerb() error {
 			verb, os.Args[0])
 	}
 
-	return handler(verb, os.Args[2:])
+	return handler(os.Args[2:])
 }
 
 // AddVerbHandler adds a verb handler to the map

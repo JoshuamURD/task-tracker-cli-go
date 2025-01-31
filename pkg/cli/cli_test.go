@@ -9,7 +9,7 @@ import (
 
 func TestHandleVerb(t *testing.T) {
 	handlers = HandlerMap{
-		"help": func(verb string, args []string) error { return nil },
+		"help": func(args []string) error { return nil },
 	}
 	test := []struct {
 		name    string
@@ -74,13 +74,13 @@ func TestAddVerbHandler(t *testing.T) {
 		{
 			name:    "valid handler",
 			verb:    "help",
-			handler: func(verb string, args []string) error { return nil },
+			handler: func(args []string) error { return nil },
 			wantErr: "",
 		},
 		{
 			name:    "duplicate verb",
 			verb:    "help",
-			handler: func(verb string, args []string) error { return nil },
+			handler: func(args []string) error { return nil },
 			wantErr: "handler for verb 'help' already registered",
 		},
 	}
@@ -105,7 +105,7 @@ func TestAddVerbHandler(t *testing.T) {
 
 func TestListVerbs(t *testing.T) {
 	handlers = HandlerMap{
-		"help": func(verb string, args []string) error { return nil },
+		"help": func(args []string) error { return nil },
 	}
 	got := ListVerbs()
 	want := []string{"help"}

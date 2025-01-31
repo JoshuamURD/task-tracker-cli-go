@@ -2,8 +2,6 @@ package task
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -20,20 +18,20 @@ func setupTempFile(t *testing.T) string {
 	return tmpFile.Name()
 }
 
-func TestTasks(t *testing.T) {
-	// Override time for consistent testing
-	fixedTime := time.Date(2025, 1, 30, 12, 0, 0, 0, time.UTC)
-	NowFunc = func() time.Time { return fixedTime }
-	defer func() { NowFunc = time.Now }()
-
-	// Use a temporary JSON file
-	tempFile := setupTempFile(t)
-	defer os.Remove(tempFile) // Cleanup after test
-
+// setupTasks returns a Tasks object and the path to the temporary file
+func setupTasks(t *testing.T) (Tasks, string) {
+	t.Helper()
 	tasks := NewTasks()
+	tempFile := setupTempFile(t)
+	t.Cleanup(func() { os.Remove(tempFile) })
+	return tasks, tempFile
+}
 
+func TestLoadTasks(t *testing.T) {
 	t.Run("Loading tasks from empty file", func(t *testing.T) {
-		err := tasks.LoadTasks(tempFile)
+		tasks, tempFile := setupTasks(t)
+		
+		err := LoadTasks(tempFile, tasks)
 		if err != nil {
 			t.Fatalf("Failed to load tasks: %v", err)
 		}
@@ -41,78 +39,120 @@ func TestTasks(t *testing.T) {
 			t.Errorf("Expected 0 tasks, got %d", len(tasks))
 		}
 	})
+}
 
-	t.Run("Adding a task", func(t *testing.T) {
-		tasks.AddTask("Test task", tempFile)
+func TestListTasks(t *testing.T) {
+	var buf bytes.Buffer
+	now := time.Now()
+	tests := []struct {
+		name  string
+		tasks Tasks
+		kind  string
+		want  string
+	}{
+		{
+			name: "List tasks",
+			tasks: Tasks{
+				1: Task{
+					Description: "Task 1",
+					Status:     "Pending",
+					Createdate: now,
+				},
+			},
+			kind: "all",
+			want: "ID: 1, Description: Task 1, Status: Pending, CreatedAt: " + now.Format(time.RFC3339) + "\n",
+		},
+	}
 
-		if len(tasks) != 1 {
-			t.Errorf("Expected 1 task, got %d", len(tasks))
-		}
-		task := tasks[0]
-		if task.Description != "Test task" {
-			t.Errorf("Expected task description 'Test task', got '%s'", task.Description)
-		}
-		if !task.Createdate.Equal(fixedTime) {
-			t.Errorf("Expected created time %v, got %v", fixedTime, task.Createdate)
-		}
-	})
-
-	t.Run("Listing tasks", func(t *testing.T) {
-		buf := &bytes.Buffer{}
-		tasks.ListTasks("All", buf)
-
-		task := tasks[0]
-		want := fmt.Sprintf("ID: %d, Description: %s, Status: %s, CreatedAt: %s\n",
-			task.ID, task.Description, task.Status, task.Createdate.Format(time.RFC3339))
-
-		if buf.String() != want {
-			t.Errorf("ListTasks output mismatch:\nGot: %s\nWant: %s", buf.String(), want)
-		}
-	})
-
-	t.Run("Saving and Loading tasks", func(t *testing.T) {
-		// Save tasks
-		file, err := os.Create(tempFile)
-		if err != nil {
-			t.Fatalf("Failed to open temp file for writing: %v", err)
-		}
-		defer file.Close()
-
-		encoder := json.NewEncoder(file)
-		err = encoder.Encode(tasks)
-		if err != nil {
-			t.Fatalf("Failed to encode tasks: %v", err)
-		}
-
-		// Reload tasks from file
-		loadedTasks := NewTasks()
-		err = loadedTasks.LoadTasks(tempFile)
-		if err != nil {
-			t.Fatalf("Failed to load tasks from file: %v", err)
-		}
-
-		// Compare stored vs loaded tasks
-		if len(loadedTasks) != len(tasks) {
-			t.Errorf("Expected %d tasks after reload, got %d", len(tasks), len(loadedTasks))
-		}
-		if loadedTasks[0].Description != tasks[0].Description {
-			t.Errorf("Mismatch in task description: Got %s, Want %s",
-				loadedTasks[0].Description, tasks[0].Description)
-		}
-	})
-	t.Run("Deleting a task", func(t *testing.T) {
-		taskLength := len(tasks)
-		tasks.DeleteTask(1, tempFile)
-
-		if len(tasks) != taskLength-1 {
-			t.Errorf("Expected %d tasks, got %d", taskLength-1, len(tasks))
-		}
-
-		for i, tasks := range tasks {
-			if tasks.ID == 1 {
-				t.Errorf("Expected task ID %d, got %d", i+1, tasks.ID)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			buf.Reset()
+			err := test.tasks.ListTasks(test.kind, &buf)
+			if err != nil {
+				t.Fatalf("ListTasks() error = %v", err)
 			}
-		}
+			if buf.String() != test.want {
+				t.Errorf("ListTasks() = %q, want %q", buf.String(), test.want)
+			}
+		})
+	}
+}
 
-	})
+func TestAddTask(t *testing.T) {
+	tasks, tempFile := setupTasks(t)
+
+	err := AddTask("Test task", tempFile, tasks)
+	if err != nil {
+		t.Fatalf("Failed to add task: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Errorf("Expected 1 task, got %d", len(tasks))
+	}
+
+	task, exists := tasks[1]
+	if !exists {
+		t.Fatal("Task with ID 1 not found")
+	}
+	if task.Description != "Test task" {
+		t.Errorf("Expected task description 'Test task', got '%s'", task.Description)
+	}
+	if task.Status != "Pending" {
+		t.Errorf("Expected status 'Pending', got '%s'", task.Status)
+	}
+}
+
+func TestDeleteTask(t *testing.T) {
+	tests := []struct {
+		name       string
+		setupTasks Tasks
+		taskID     int
+		wantErr    bool
+		wantLen    int
+	}{
+		{
+			name: "Delete existing task",
+			setupTasks: Tasks{
+				1: Task{
+					Description: "Task 1",
+					Status:     "Pending",
+					Createdate: time.Now(),
+				},
+			},
+			taskID:  1,
+			wantErr: false,
+			wantLen: 0,
+		},
+		{
+			name: "Delete non-existent task",
+			setupTasks: Tasks{
+				1: Task{
+					Description: "Task 1",
+					Status:     "Pending",
+					Createdate: time.Now(),
+				},
+			},
+			taskID:  2,
+			wantErr: true,
+			wantLen: 1,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tasks, tempFile := setupTasks(t)
+			for k, v := range test.setupTasks {
+				tasks[k] = v
+			}
+
+			err := tasks.DeleteTask(test.taskID, tempFile)
+			
+			if (err != nil) != test.wantErr {
+				t.Errorf("DeleteTask() error = %v, wantErr %v", err, test.wantErr)
+			}
+
+			if len(tasks) != test.wantLen {
+				t.Errorf("Expected %d tasks after deletion, got %d", test.wantLen, len(tasks))
+			}
+		})
+	}
 }

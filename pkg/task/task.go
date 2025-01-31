@@ -12,31 +12,34 @@ import (
 // NowFunc acts as a DI for time.Now for testing purposes
 var NowFunc = time.Now
 
+// Count is a counter for the number of tasks
+var count = 0
+
+// ID is a type alias for int
+type ID = int
+
 // tasks is an in memory cache of tasks loaded from json
 type Task struct {
-	ID          int       `json:"name"`
 	Description string    `json:"description"`
 	Status      string    `json:"status"`
-	Createdate  time.Time `json:"createdat"`
-	Updatedate  time.Time `json:"updatedat"`
+	Createdate  time.Time `json:"createdate"`
+	Updatedate  time.Time `json:"updatedate"`
 }
 
-// Tasks stores a slice of the in memory tasks
-type Tasks []Task
+// Tasks stores a map of tasks with ID as the key
+type Tasks map[ID]Task
 
-// NewTasks initialises an empty Tasks slice
+// NewTasks creates a new Tasks map
 func NewTasks() Tasks {
-	return Tasks{}
+	return make(Tasks)
 }
 
 // LoadTasks loads tasks from the json file, or creates a json file to store tasks if it does not exist
-func (t *Tasks) LoadTasks(path string) error {
-
+func LoadTasks(path string, tasks Tasks) error {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
-
 	defer file.Close()
 
 	info, err := file.Stat()
@@ -50,25 +53,32 @@ func (t *Tasks) LoadTasks(path string) error {
 	}
 
 	decoder := json.NewDecoder(file)
-	err = decoder.Decode(t)
+	err = decoder.Decode(&tasks)
 	if err != nil {
 		return err
 	}
-	log.Printf("%v tasks were loaded in ", len(*t))
-
+	
+	// Update count to the highest ID to maintain ID sequence
+	for id := range tasks {
+		if id > count {
+			count = id
+		}
+	}
+	
+	log.Printf("%v tasks were loaded", len(tasks))
 	return nil
 }
 
 // AddTask adds a task
-func (t *Tasks) AddTask(task, path string) error {
+func AddTask(task, path string, tasks Tasks) error {
 	now := NowFunc()
-	*t = append(*t, Task{
-		ID:          len(*t) + 1,
+	count++
+	tasks[count] = Task{
 		Description: task,
-		Status:      "todo",
+		Status:      "Pending",
 		Createdate:  now,
 		Updatedate:  now,
-	})
+	}
 
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
@@ -78,19 +88,19 @@ func (t *Tasks) AddTask(task, path string) error {
 	file.Truncate(0)
 	file.Seek(0, 0)
 
-	if err = json.NewEncoder(file).Encode(*t); err != nil {
+	if err = json.NewEncoder(file).Encode(tasks); err != nil {
 		return fmt.Errorf("error writing task to JSON: %v", err)
 	}
 
-	fmt.Printf("Task added successfully (ID: %v)", len(*t))
+	fmt.Printf("Task added successfully (ID: %v)", count)
 	return nil
 }
 
-// ListTasks writes thes tasks to an io.Writer
+// ListTasks writes the tasks to an io.Writer
 func (t Tasks) ListTasks(kind string, w io.Writer) error {
-	for _, task := range t {
+	for id, task := range t {
 		_, err := fmt.Fprintf(w, "ID: %v, Description: %s, Status: %s, CreatedAt: %s\n",
-			task.ID, task.Description, task.Status, task.Createdate.Format(time.RFC3339))
+			id, task.Description, task.Status, task.Createdate.Format(time.RFC3339))
 		if err != nil {
 			return err
 		}
@@ -99,23 +109,23 @@ func (t Tasks) ListTasks(kind string, w io.Writer) error {
 }
 
 // DeleteTask takes a taskID and deletes that task
-func (t *Tasks) DeleteTask(taskID int, path string) error {
-	for i, task := range *t {
-		if task.ID == taskID {
-			*t = append((*t)[:i], (*t)[i+1:]...)
-			file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
-			if err != nil {
-				return fmt.Errorf("error opening json file: %v", err)
-			}
-			defer file.Close()
-			file.Truncate(0)
-			file.Seek(0, 0)
-
-			if err = json.NewEncoder(file).Encode(*t); err != nil {
-				return fmt.Errorf("error writing task to JSON: %v", err)
-			}
-			return nil
-		}
+func (t Tasks) DeleteTask(taskID int, path string) error {
+	if _, exists := t[taskID]; !exists {
+		return fmt.Errorf("task with ID %v not found", taskID)
 	}
-	return fmt.Errorf("task with ID %v not found", taskID)
+
+	delete(t, taskID)
+
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("error opening json file: %v", err)
+	}
+	defer file.Close()
+	file.Truncate(0)
+	file.Seek(0, 0)
+
+	if err = json.NewEncoder(file).Encode(t); err != nil {
+		return fmt.Errorf("error writing task to JSON: %v", err)
+	}
+	return nil
 }
