@@ -3,23 +3,55 @@ package cli
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 )
 
 func TestHandleVerb(t *testing.T) {
-	test := []struct {
-		name string
-		args []string
-		want error
-	}{
-		{name: "no command", args: []string{}, want: fmt.Errorf("no command provided. Usage: %s <command> [args...]", os.Args[0])},
+	handlers = HandlerMap{
+		"help": func(verb string, args []string) error { return nil },
 	}
-	
+	test := []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{
+			name:    "no command",
+			args:    []string{},
+			wantErr: fmt.Sprintf("no command provided. Usage: %s <command> [args...]", os.Args[0]),
+		},
+		{
+			name:    "help",
+			args:    []string{"help"},
+			wantErr: "",
+		},
+		{
+			name:    "unknown command",
+			args:    []string{"unknown"},
+			wantErr: fmt.Sprintf("unknown command '%s'. Use '%s help' to see available commands", "unknown", os.Args[0]),
+		},
+	}
+	for _, tt := range test {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Args = append([]string{os.Args[0]}, tt.args...)
+			got := HandleVerb()
+			if tt.wantErr == "" {
+				if got != nil {
+					t.Errorf("Testing HandleVerb() by %s: Got unexpected error: %v", tt.name, got)
+				}
+			} else if got == nil {
+				t.Errorf("Testing HandleVerb() by %s: Expected error %q but got nil", tt.name, tt.wantErr)
+			} else if got.Error() != tt.wantErr {
+				t.Errorf("Testing HandleVerb() by %s: Got %q, want %q", tt.name, got.Error(), tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestAddVerbHandler(t *testing.T) {
 	// Reset handlers map before all tests
-	handlers = map[string]VerbHandler{}
+	handlers = HandlerMap{}
 
 	tests := []struct {
 		name    string
@@ -68,5 +100,16 @@ func TestAddVerbHandler(t *testing.T) {
 				t.Errorf("AddVerbHandler() unexpected error = %v", err)
 			}
 		})
+	}
+}
+
+func TestListVerbs(t *testing.T) {
+	handlers = HandlerMap{
+		"help": func(verb string, args []string) error { return nil },
+	}
+	got := ListVerbs()
+	want := []string{"help"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ListVerbs() = %v, want %v", got, want)
 	}
 }

@@ -12,10 +12,14 @@ type VerbHandler func(verb string, args []string) error
 type HandlerMap map[string]VerbHandler
 
 // handlers is the global map of verb handlers
-var handlers = map[string]VerbHandler{}
+var handlers = HandlerMap{}
 
 // HandleVerb processes the command line arguments and executes the appropriate handler
 func HandleVerb() error {
+	if _, exists := handlers["help"]; !exists {
+		return fmt.Errorf("help command not found")
+	}
+
 	if len(os.Args) < 2 {
 		return fmt.Errorf("no command provided. Usage: %s <command> [args...]", os.Args[0])
 	}
