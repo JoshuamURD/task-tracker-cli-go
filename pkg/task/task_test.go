@@ -1,4 +1,4 @@
-package main
+package task
 
 import (
 	"bytes"
@@ -99,5 +99,20 @@ func TestTasks(t *testing.T) {
 			t.Errorf("Mismatch in task description: Got %s, Want %s",
 				loadedTasks[0].Description, tasks[0].Description)
 		}
+	})
+	t.Run("Deleting a task", func(t *testing.T) {
+		taskLength := len(tasks)
+		tasks.DeleteTask(1, tempFile)
+
+		if len(tasks) != taskLength-1 {
+			t.Errorf("Expected %d tasks, got %d", taskLength-1, len(tasks))
+		}
+
+		for i, tasks := range tasks {
+			if tasks.ID == 1 {
+				t.Errorf("Expected task ID %d, got %d", i+1, tasks.ID)
+			}
+		}
+
 	})
 }

@@ -1,4 +1,4 @@
-package main
+package task
 
 import (
 	"encoding/json"
@@ -70,13 +70,17 @@ func (t *Tasks) AddTask(task, path string) error {
 		Updatedate:  now,
 	})
 
-	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		log.Fatal("An error occurred opening the json file: %v", err)
+		return fmt.Errorf("error opening json file: %v", err)
 	}
 	defer file.Close()
+	file.Truncate(0)
+	file.Seek(0, 0)
 
-	json.NewEncoder(file).Encode(*t[len(*t)])
+	if err = json.NewEncoder(file).Encode(*t); err != nil {
+		return fmt.Errorf("error writing task to JSON: %v", err)
+	}
 
 	fmt.Printf("Task added successfully (ID: %v)", len(*t))
 	return nil
@@ -86,7 +90,7 @@ func (t *Tasks) AddTask(task, path string) error {
 func (t Tasks) ListTasks(kind string, w io.Writer) error {
 	for _, task := range t {
 		_, err := fmt.Fprintf(w, "ID: %v, Description: %s, Status: %s, CreatedAt: %s\n",
-			task.ID, task.Description, task.Status, task.Createdate)
+			task.ID, task.Description, task.Status, task.Createdate.Format(time.RFC3339))
 		if err != nil {
 			return err
 		}
@@ -94,6 +98,24 @@ func (t Tasks) ListTasks(kind string, w io.Writer) error {
 	return nil
 }
 
-func main() {
+// DeleteTask takes a taskID and deletes that task
+func (t *Tasks) DeleteTask(taskID int, path string) error {
+	for i, task := range *t {
+		if task.ID == taskID {
+			*t = append((*t)[:i], (*t)[i+1:]...)
+			file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
+			if err != nil {
+				return fmt.Errorf("error opening json file: %v", err)
+			}
+			defer file.Close()
+			file.Truncate(0)
+			file.Seek(0, 0)
 
+			if err = json.NewEncoder(file).Encode(*t); err != nil {
+				return fmt.Errorf("error writing task to JSON: %v", err)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("task with ID %v not found", taskID)
 }
